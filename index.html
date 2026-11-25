@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theo dõi nhiệm vụ xã Triệu Cơ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Noto+Serif:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* Bố cục: đầu trang gọn, hàng ô số liệu bấm được để lọc, thanh lọc, bảng nhiệm vụ; sửa trong hộp thoại. */
+:root{
+  --bg:#f4f5f7; --surface:#ffffff; --ink:#1b2430; --muted:#5b6675; --line:#d9dee5;
+  --accent:#a3191f; --accent-ink:#ffffff; --accent-soft:#f7e6e6;
+  --ok:#17693f; --ok-soft:#e2f3ea; --warn:#8a5a00; --warn-soft:#fbf0d6; --bad:#b3261e; --bad-soft:#fde8e6; --idle:#4b5563; --idle-soft:#eceff3;
+  --font-display:"Noto Serif", Georgia, "Times New Roman", serif;
+  --font-body:"Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#12161c; --surface:#1b212a; --ink:#e8ecf1; --muted:#9aa5b4; --line:#313a47;
+    --accent:#e0575c; --accent-ink:#16090a; --accent-soft:#3a1d1f;
+    --ok:#6fd19d; --ok-soft:#173326; --warn:#f0c264; --warn-soft:#3a2f12; --bad:#ff8a80; --bad-soft:#41201d; --idle:#b4bdc9; --idle-soft:#2a323d;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12161c; --surface:#1b212a; --ink:#e8ecf1; --muted:#9aa5b4; --line:#313a47;
+  --accent:#e0575c; --accent-ink:#16090a; --accent-soft:#3a1d1f;
+  --ok:#6fd19d; --ok-soft:#173326; --warn:#f0c264; --warn-soft:#3a2f12; --bad:#ff8a80; --bad-soft:#41201d; --idle:#b4bdc9; --idle-soft:#2a323d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:16px}
+header.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;border-bottom:3px solid var(--accent);padding-bottom:12px}
+.top h1{font-family:var(--font-display);font-size:26px;line-height:1.2;margin:0;text-wrap:balance}
+.top p{margin:4px 0 0;color:var(--muted);font-size:13.5px;max-width:70ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+button,select,input,textarea{font:inherit;color:inherit}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:8px 14px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.note{border:1px solid var(--line);border-left:4px solid var(--warn);background:var(--warn-soft);padding:8px 12px;border-radius:4px;font-size:13.5px}
+.note[hidden]{display:none}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.tile{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:2px;border-top:4px solid var(--idle)}
+.tile b{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.tile span{font-size:13px;color:var(--muted)}
+.tile.bad{border-top-color:var(--bad)} .tile.warn{border-top-color:var(--warn)} .tile.ok{border-top-color:var(--ok)} .tile.acc{border-top-color:var(--accent)}
+.tile[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px}
+.filters input,.filters select{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 10px;min-width:0}
+.filters input{flex:2 1 240px}
+.filters select{flex:1 1 170px}
+.count{font-size:13.5px;color:var(--muted)}
+.tablebox{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);background:var(--bg);position:sticky;top:0}
+tr:last-child td{border-bottom:0}
+td.ma{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+td.nd{min-width:320px}
+.meta{display:block;margin-top:4px;color:var(--muted);font-size:12.5px}
+.chip{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.idle{background:var(--idle-soft);color:var(--idle)}
+.bar{height:6px;background:var(--idle-soft);border-radius:3px;margin-top:6px;width:90px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}
+.empty{padding:32px;text-align:center;color:var(--muted)}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:0;width:min(760px,calc(100vw - 24px));max-height:calc(100vh - 24px)}
+dialog::backdrop{background:rgba(10,14,20,.55)}
+dialog form{display:flex;flex-direction:column;gap:14px;padding:20px}
+dialog h2{font-family:var(--font-display);font-size:20px;margin:0}
+.ro{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:var(--muted)}
+label input,label select,label textarea{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px 10px;font-weight:400;color:var(--ink);width:100%}
+textarea{resize:vertical;min-height:70px}
+details{border:1px solid var(--line);border-radius:6px;padding:8px 12px}
+details summary{cursor:pointer;font-weight:600;font-size:14px}
+details .grid{margin-top:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center}
+.err{color:var(--bad);font-size:13.5px}
+.links a{color:var(--accent);word-break:break-all}
+footer{color:var(--muted);font-size:12.5px}
+@media (max-width:480px){.top h1{font-size:21px}}
+@media (prefers-reduced-motion:no-preference){.btn,.tile{transition:border-color .15s,background .15s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Theo dõi nhiệm vụ cấp trên giao xã Triệu Cơ</h1>
+      <p>Nhiệm vụ do Bí thư Tỉnh ủy, Thường trực Tỉnh ủy, Ban Thường vụ Tỉnh ủy giao có liên quan đến xã. Danh sách ban đầu lấy từ hệ thống theo dõi nhiệm vụ của Văn phòng Tỉnh ủy lúc 07 giờ 33 ngày 18/11/2026.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnCopy" type="button">Sao chép danh sách đang lọc</button>
+      <button class="btn primary" id="btnAdd" type="button">Thêm nhiệm vụ</button>
+    </div>
+  </header>
+
+  <div class="note" id="note" hidden></div>
+
+  <section class="tiles" id="tiles" aria-label="Tổng hợp"></section>
+
+  <section class="filters" aria-label="Bộ lọc">
+    <input id="fQ" type="search" placeholder="Tìm theo mã, nội dung, văn bản, phòng phụ trách" aria-label="Tìm kiếm">
+    <select id="fBc" aria-label="Tỉnh ghi nhận báo cáo">
+      <option value="">Tỉnh ghi nhận: tất cả</option><option value="C">Tỉnh chưa ghi nhận báo cáo</option><option value="D">Tỉnh đã ghi nhận báo cáo</option>
+    </select>
+    <select id="fXa" aria-label="Tình trạng tại xã">
+      <option value="">Tại xã: tất cả</option><option value="chua">Chưa cập nhật</option><option value="dang">Đang thực hiện</option><option value="xong">Đã hoàn thành</option><option value="khongps">Không phát sinh</option>
+    </select>
+    <select id="fHan" aria-label="Hạn hoàn thành">
+      <option value="">Hạn: tất cả</option><option value="qua">Quá hạn</option><option value="sap">Đến hạn trong 7 ngày</option><option value="trong">Còn hạn</option><option value="khong">Chưa ấn định hạn</option>
+    </select>
+    <select id="fLv" aria-label="Lĩnh vực"><option value="">Lĩnh vực: tất cả</option></select>
+    <select id="fPh" aria-label="Phòng phụ trách"><option value="">Phòng phụ trách: tất cả</option></select>
+  </section>
+
+  <div class="row"><span class="count" id="count"></span><button class="btn" id="btnClear" type="button">Bỏ lọc</button></div>
+
+  <div class="tablebox">
+    <table>
+      <thead><tr><th>Mã</th><th>Nhiệm vụ</th><th>Hạn hoàn thành</th><th>Phòng phụ trách</th><th>Tỉnh ghi nhận</th><th>Tại xã</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden>Không có nhiệm vụ nào khớp bộ lọc.</div>
+  </div>
+
+  <footer>Cột “Tỉnh ghi nhận” là việc hệ thống của Văn phòng Tỉnh ủy đã ghi nhận báo cáo của xã hay chưa. Cột “Tại xã” do xã tự cập nhật trên trang này.</footer>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <form id="frm" novalidate>
+    <h2 id="dlgTitle">Cập nhật nhiệm vụ</h2>
+    <div class="ro" id="roInfo"></div>
+    <div class="grid">
+      <label for="iPhong">Phòng, cơ quan phụ trách<input id="iPhong" list="dlPhong" autocomplete="off" placeholder="Ví dụ: Văn phòng Đảng ủy"></label>
+      <datalist id="dlPhong"></datalist>
+      <label for="iTtXa">Tình trạng tại xã<select id="iTtXa"><option value="chua">Chưa cập nhật</option><option value="dang">Đang thực hiện</option><option value="xong">Đã hoàn thành</option><option value="khongps">Không phát sinh</option></select></label>
+      <label for="iTd">Tiến độ tại xã (%)<input id="iTd" type="number" min="0" max="100" step="5"></label>
+      <label for="iBc">Tỉnh ghi nhận báo cáo<select id="iBc"><option value="C">Chưa ghi nhận</option><option value="D">Đã ghi nhận</option></select></label>
+      <label for="iVbbc">Văn bản báo cáo của xã (số, ngày)<input id="iVbbc" placeholder="Ví dụ: BC 150-BC/ĐU 20/11/2026"></label>
+    </div>
+    <label for="iKq">Kết quả thực hiện<textarea id="iKq" rows="3"></textarea></label>
+    <label for="iMc">Tài liệu minh chứng (mỗi dòng một đường dẫn hoặc tên tệp)<textarea id="iMc" rows="2"></textarea></label>
+    <label for="iGc">Ghi chú<textarea id="iGc" rows="2"></textarea></label>
+    <details id="dCore">
+      <summary>Thông tin giao nhiệm vụ</summary>
+      <div class="grid">
+        <label for="iMa">Mã nhiệm vụ<input id="iMa"></label>
+        <label for="iVb">Văn bản giao<input id="iVb"></label>
+        <label for="iNg">Nguồn giao<input id="iNg"></label>
+        <label for="iLv">Lĩnh vực<input id="iLv" list="dlLv" autocomplete="off"></label>
+        <datalist id="dlLv"></datalist>
+        <label for="iDv">Đơn vị chủ trì (cấp tỉnh)<input id="iDv"></label>
+        <label for="iHan">Hạn hoàn thành (ngày)<input id="iHan" type="date"></label>
+        <label for="iHg">Hạn theo văn bản<input id="iHg" placeholder="Ví dụ: Trước ngày 30/11/2026"></label>
+      </div>
+      <label for="iNd" style="margin-top:12px">Nội dung nhiệm vụ<textarea id="iNd" rows="4"></textarea></label>
+    </details>
+    <div class="err" id="frmErr" role="alert"></div>
+    <div class="row">
+      <button class="btn danger" id="btnDel" type="button">Xóa nhiệm vụ</button>
+      <span class="actions"><button class="btn" id="btnCancel" type="button">Đóng</button><button class="btn primary" id="btnSave" type="submit">Lưu</button></span>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const XA = {chua:["Chưa cập nhật","idle"], dang:["Đang thực hiện","warn"], xong:["Đã hoàn thành","ok"], khongps:["Không phát sinh","idle"]};
+const pad = n => String(n).padStart(2,"0");
+const todayStr = () => { const d = new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); };
+const fmtDate = s => s ? s.split("-").reverse().join("/") : "";
+
+let seed = [];            // danh sách ban đầu (tệp data.json)
+let saved = new Map();    // bản ghi đã lưu trong kho dữ liệu của trang
+let db = null, canWrite = false, editing = null, delArmed = false;
+const state = {q:"", bc:"", xa:"", han:"", lv:"", ph:"", tile:""};
+
+function fromSeed(r){
+  return {id:r[0], ma:r[0], bc:r[1], tl:r[2], nd:r[3], dv:r[4], han:r[5], hg:r[6], ttTinh:r[7], tdTinh:r[8], vb:r[9], ng:r[10], lv:r[11],
+          phong:"", ttXa:"chua", tdXa:0, vbbc:"", kq:"", mc:"", gc:"", capNhat:""};
+}
+function tasks(){
+  const m = new Map(seed.map(t => [t.id, t]));
+  for (const [id, d] of saved) m.set(id, Object.assign({}, m.get(id) || {}, d, {id}));
+  return [...m.values()].filter(t => !t.xoa);
+}
+function done(t){ return t.ttXa === "xong" || t.ttXa === "khongps" || (t.ttTinh === "Đã hoàn thành" && t.bc === "D"); }
+function hanState(t){
+  if (!t.han) return "khong";
+  if (done(t)) return "xong";
+  const diff = Math.round((new Date(t.han+"T00:00:00") - new Date(todayStr()+"T00:00:00")) / 864e5);
+  return diff < 0 ? "qua" : diff <= 7 ? "sap" : "trong";
+}
+function match(t){
+  if (state.bc && t.bc !== state.bc) return false;
+  if (state.xa && t.ttXa !== state.xa) return false;
+  if (state.han && hanState(t) !== state.han) return false;
+  if (state.lv && t.lv !== state.lv) return false;
+  if (state.ph && (state.ph === "__none" ? !!t.phong : t.phong !== state.ph)) return false;
+  if (state.q){
+    const hay = [t.ma,t.nd,t.vb,t.dv,t.phong,t.lv,t.ng,t.kq,t.gc].join(" ").toLowerCase();
+    if (!hay.includes(state.q.toLowerCase())) return false;
+  }
+  return true;
+}
+function sortKey(t){ const h = hanState(t); return ({qua:0,sap:1,trong:2,khong:3,xong:4}[h]) + (t.han || "9999") + t.ma; }
+
+function fillSelect(sel, values, first, extra){
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">'+esc(first)+'</option>' + (extra||"") + values.map(v => '<option value="'+esc(v)+'">'+esc(v)+'</option>').join("");
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : "";
+}
+function render(){
+  const all = tasks();
+  const n = f => all.filter(f).length;
+  const tiles = [
+    ["", "Tổng số nhiệm vụ", all.length, "acc"],
+    ["bcC", "Tỉnh chưa ghi nhận báo cáo", n(t => t.bc === "C"), "bad"],
+    ["qua", "Quá hạn", n(t => hanState(t) === "qua"), "bad"],
+    ["sap", "Đến hạn trong 7 ngày", n(t => hanState(t) === "sap"), "warn"],
+    ["xong", "Xã đã hoàn thành", n(t => t.ttXa === "xong"), "ok"],
+  ];
+  $("tiles").innerHTML = tiles.map(([k,l,v,c]) => '<button type="button" class="tile '+c+'" data-tile="'+k+'" aria-pressed="'+(state.tile===k && k!=="")+'"><b>'+v+'</b><span>'+esc(l)+'</span></button>').join("");
+
+  fillSelect($("fLv"), [...new Set(all.map(t => t.lv).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"vi")), "Lĩnh vực: tất cả");
+  const phs = [...new Set(all.map(t => t.phong).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"vi"));
+  fillSelect($("fPh"), phs, "Phòng phụ trách: tất cả", '<option value="__none">Chưa phân công</option>');
+  $("dlPhong").innerHTML = phs.map(p => '<option value="'+esc(p)+'">').join("");
+  $("dlLv").innerHTML = [...new Set(all.map(t => t.lv).filter(Boolean))].map(p => '<option value="'+esc(p)+'">').join("");
+  state.lv = $("fLv").value; state.ph = $("fPh").value;
+
+  const list = all.filter(match).sort((a,b) => sortKey(a) < sortKey(b) ? -1 : 1);
+  $("count").textContent = "Đang hiển thị " + list.length + " / " + all.length + " nhiệm vụ";
+  $("empty").hidden = list.length > 0;
+  $("rows").innerHTML = list.map(t => {
+    const hs = hanState(t);
+    const hanChip = hs === "qua" ? '<span class="chip bad">Quá hạn</span>' : hs === "sap" ? '<span class="chip warn">Sắp đến hạn</span>' : "";
+    const [xl, xc] = XA[t.ttXa] || XA.chua;
+    const pct = Math.max(0, Math.min(100, Number(t.tdXa) || 0));
+    return '<tr>'
+      + '<td class="ma">'+esc(t.ma)+'</td>'
+      + '<td class="nd">'+esc(t.nd)+'<span class="meta">'+esc([t.vb, t.ng, t.lv].filter(Boolean).join(" · "))+'</span></td>'
+      + '<td>'+esc(t.hg || fmtDate(t.han) || "Chưa ấn định")+(hanChip ? '<br>'+hanChip : "")+'</td>'
+      + '<td>'+(t.phong ? esc(t.phong) : '<span class="chip idle">Chưa phân công</span>')+'</td>'
+      + '<td>'+(t.bc === "D" ? '<span class="chip ok">Đã ghi nhận</span>' : '<span class="chip bad">Chưa ghi nhận</span>')+'</td>'
+      + '<td><span class="chip '+xc+'">'+xl+'</span>'+(t.ttXa === "dang" || pct > 0 ? '<div class="bar" title="'+pct+'%"><i style="width:'+pct+'%"></i></div><span class="meta">'+pct+'%</span>' : "")+'</td>'
+      + '<td><button type="button" class="btn" data-edit="'+esc(t.id)+'">'+(canWrite ? "Cập nhật" : "Xem")+'</button></td>'
+      + '</tr>';
+  }).join("");
+}
+
+function showNote(msg){ const n = $("note"); n.textContent = msg; n.hidden = !msg; }
+
+function openDlg(t){
+  editing = t; delArmed = false;
+  const isNew = !t;
+  $("dlgTitle").textContent = isNew ? "Thêm nhiệm vụ" : "Cập nhật nhiệm vụ " + t.ma;
+  const r = $("roInfo");
+  if (isNew) r.hidden = true;
+  else {
+    r.hidden = false;
+    const links = (t.mc || "").split("\n").map(s => s.trim()).filter(Boolean);
+    r.innerHTML = '<strong>'+esc(t.nd)+'</strong><span class="meta">'+esc([t.vb, t.ng, "Chủ trì: "+(t.dv||"chưa rõ"), "Hạn: "+(t.hg || fmtDate(t.han) || "chưa ấn định")].join(" · "))+'</span>'
+      + (t.ttTinh ? '<span class="meta">Tình trạng chung toàn tỉnh: '+esc(t.ttTinh)+(t.tdTinh!=null && t.tdTinh!=="" ? " ("+esc(t.tdTinh)+"%)" : "")+(t.tl ? "; đơn vị cấp xã đã báo cáo: "+esc(t.tl) : "")+'</span>' : "")
+      + (links.length ? '<span class="meta links">Minh chứng: '+links.map(l => /^https?:\/\//i.test(l) ? '<a href="'+esc(l)+'" target="_blank" rel="noopener">'+esc(l)+'</a>' : esc(l)).join("; ")+'</span>' : "")
+      + (t.capNhat ? '<span class="meta">Cập nhật lần cuối: '+esc(new Date(t.capNhat).toLocaleString("vi-VN"))+'</span>' : "");
+  }
+  const v = t || {ttXa:"chua", tdXa:0, bc:"C"};
+  $("iPhong").value = v.phong || ""; $("iTtXa").value = v.ttXa || "chua"; $("iTd").value = v.tdXa ?? 0; $("iBc").value = v.bc || "C";
+  $("iVbbc").value = v.vbbc || ""; $("iKq").value = v.kq || ""; $("iMc").value = v.mc || ""; $("iGc").value = v.gc || "";
+  $("iMa").value = v.ma || ""; $("iVb").value = v.vb || ""; $("iNg").value = v.ng || ""; $("iLv").value = v.lv || ""; $("iDv").value = v.dv || "";
+  $("iHan").value = v.han || ""; $("iHg").value = v.hg || ""; $("iNd").value = v.nd || "";
+  $("dCore").open = isNew;
+  $("frmErr").textContent = canWrite ? "" : "Anh/chị đang ở chế độ chỉ xem nên không lưu được thay đổi.";
+  $("btnSave").disabled = !canWrite; $("btnDel").hidden = isNew || !canWrite; $("btnDel").textContent = "Xóa nhiệm vụ";
+  $("dlg").showModal();
+}
+
+async function save(ev){
+  ev.preventDefault();
+  if (!db || !canWrite) return;
+  const nd = $("iNd").value.trim();
+  if (!nd){ $("dCore").open = true; $("frmErr").textContent = "Cần nhập nội dung nhiệm vụ."; $("iNd").focus(); return; }
+  const td = Math.max(0, Math.min(100, Number($("iTd").value) || 0));
+  const id = editing ? editing.id : "XA-" + Date.now().toString(36);
+  const base = editing ? Object.assign({}, editing) : {};
+  delete base.id;
+  const body = Object.assign(base, {
+    ma: $("iMa").value.trim() || id, nd, vb: $("iVb").value.trim(), ng: $("iNg").value.trim(), lv: $("iLv").value.trim(), dv: $("iDv").value.trim(),
+    han: $("iHan").value, hg: $("iHg").value.trim(),
+    phong: $("iPhong").value.trim(), ttXa: $("iTtXa").value, tdXa: $("iTtXa").value === "xong" ? 100 : td, bc: $("iBc").value,
+    vbbc: $("iVbbc").value.trim(), kq: $("iKq").value.trim(), mc: $("iMc").value.trim(), gc: $("iGc").value.trim(),
+    capNhat: new Date().toISOString()
+  });
+  $("btnSave").disabled = true; $("frmErr").textContent = "";
+  try {
+    await db.doc("tasks/" + id).set(body);
+    saved.set(id, body); render(); $("dlg").close();
+  } catch (e) {
+    $("frmErr").textContent = e && e.code === "invalid_argument" ? "Không lưu được: mã chỉnh sửa không đúng. Anh/chị bấm Lưu lại và nhập đúng mã." : "Không lưu được, anh/chị thử lại sau ít phút.";
+  } finally { $("btnSave").disabled = !canWrite; }
+}
+async function del(){
+  if (!editing || !db || !canWrite) return;
+  if (!delArmed){ delArmed = true; $("btnDel").textContent = "Bấm lần nữa để xóa"; return; }
+  const body = Object.assign({}, editing, {xoa:true, capNhat:new Date().toISOString()}); delete body.id;
+  try { await db.doc("tasks/" + editing.id).set(body); saved.set(editing.id, body); render(); $("dlg").close(); }
+  catch (e) { $("frmErr").textContent = "Không xóa được, anh/chị thử lại sau ít phút."; }
+}
+
+function setFilter(){ state.q = $("fQ").value.trim(); state.bc = $("fBc").value; state.xa = $("fXa").value; state.han = $("fHan").value; state.lv = $("fLv").value; state.ph = $("fPh").value; state.tile = ""; render(); }
+["fQ","fBc","fXa","fHan","fLv","fPh"].forEach(id => $(id).addEventListener(id === "fQ" ? "input" : "change", setFilter));
+$("btnClear").addEventListener("click", () => { ["fQ","fBc","fXa","fHan","fLv","fPh"].forEach(id => $(id).value = ""); setFilter(); });
+$("tiles").addEventListener("click", e => {
+  const b = e.target.closest("[data-tile]"); if (!b) return;
+  const k = b.dataset.tile;
+  ["fBc","fXa","fHan"].forEach(id => $(id).value = "");
+  if (k === "bcC") $("fBc").value = "C"; else if (k === "qua" || k === "sap") $("fHan").value = k; else if (k === "xong") $("fXa").value = "xong";
+  setFilter(); state.tile = k; render();
+});
+$("rows").addEventListener("click", e => { const b = e.target.closest("[data-edit]"); if (b) openDlg(tasks().find(t => t.id === b.dataset.edit)); });
+$("btnAdd").addEventListener("click", () => openDlg(null));
+$("btnCancel").addEventListener("click", () => $("dlg").close());
+$("btnDel").addEventListener("click", del);
+$("frm").addEventListener("submit", save);
+$("btnCopy").addEventListener("click", async () => {
+  const list = tasks().filter(match).sort((a,b) => sortKey(a) < sortKey(b) ? -1 : 1);
+  const clean = s => String(s ?? "").replace(/[\t\r\n]+/g, " ");
+  const tsv = [["Mã","Nội dung nhiệm vụ","Văn bản giao","Nguồn giao","Lĩnh vực","Hạn hoàn thành","Phòng phụ trách","Tỉnh ghi nhận báo cáo","Tình trạng tại xã","Tiến độ (%)","Văn bản báo cáo","Kết quả","Minh chứng","Ghi chú"].join("\t")]
+    .concat(list.map(t => [t.ma,t.nd,t.vb,t.ng,t.lv,t.hg||fmtDate(t.han),t.phong,t.bc==="D"?"Đã ghi nhận":"Chưa ghi nhận",(XA[t.ttXa]||XA.chua)[0],t.tdXa,t.vbbc,t.kq,t.mc,t.gc].map(clean).join("\t"))).join("\n");
+  const b = $("btnCopy");
+  try { await navigator.clipboard.writeText(tsv); b.textContent = "Đã sao chép " + list.length + " dòng, dán vào Excel"; }
+  catch (e) { b.textContent = "Trình duyệt không cho sao chép"; }
+  setTimeout(() => b.textContent = "Sao chép danh sách đang lọc", 3500);
+});
+
+
+function makeDb(){
+  const api = "saved.json";
+  let key = ""; try { key = sessionStorage.getItem("maChinhSua") || ""; } catch (e) {}
+  const getKey = () => { if (!key){ key = (window.prompt("Nhập mã chỉnh sửa để lưu thay đổi:") || "").trim(); try { sessionStorage.setItem("maChinhSua", key); } catch (e) {} } return key; };
+  return {
+    doc(path){ const id = path.split("/")[1]; return { set: async body => {
+      const r = await fetch(api, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({id, body, key: getKey()})});
+      if (r.status === 403){ key = ""; try { sessionStorage.removeItem("maChinhSua"); } catch (e) {} const er = new Error("forbidden"); er.code = "invalid_argument"; throw er; }
+      if (!r.ok) throw new Error("save");
+    }}; },
+    collection(){ return { onSnapshot(cb, err){
+      const pull = async () => { try { const r = await fetch(api + "?t=" + Date.now()); if (!r.ok) throw new Error("load"); const j = await r.json();
+        cb({docs: Object.entries(j.tasks || {}).map(([id, d]) => ({id, data: () => d})), metadata: {fromCache: false}}); } catch (e) { if (err) err(e); } };
+      pull(); setInterval(pull, 60000);
+    }}; }
+  };
+}
+
+async function start(){
+  try { const r = await fetch("data.json"); seed = (await r.json()).map(fromSeed); }
+  catch (e) { showNote("Không tải được danh sách nhiệm vụ ban đầu."); }
+  render();
+  $("btnAdd").disabled = true;
+  db = makeDb();
+  canWrite = false;
+  $("btnAdd").disabled = true;
+  render();
+  const timer = setTimeout(() => showNote("Chưa tải được các cập nhật đã lưu; số liệu đang hiển thị có thể chưa mới nhất."), 10000);
+  db.collection("tasks").onSnapshot(snap => {
+    saved = new Map(snap.docs.map(d => [d.id, Object.assign({}, d.data())]));
+    if (!snap.metadata.fromCache){ clearTimeout(timer); showNote(""); }
+    render();
+  }, err => { clearTimeout(timer); showNote("Chưa tải được dữ liệu đã lưu trên máy chủ; các cập nhật mới có thể chưa hiển thị."); });
+}
+start();
+})();
+</script>
+</body>
+</html>
