@@ -46,6 +46,7 @@ button,select,input,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .note{border:1px solid var(--line);border-left:4px solid var(--warn);background:var(--warn-soft);padding:8px 12px;border-radius:4px;font-size:13.5px}
 .note[hidden]{display:none}
+.btn[hidden]{display:none}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
 .tile{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;gap:2px;border-top:4px solid var(--idle)}
 .tile b{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -99,7 +100,8 @@ footer{color:var(--muted);font-size:12.5px}
     </div>
     <div class="actions">
       <button class="btn" id="btnCopy" type="button">Sao chép danh sách đang lọc</button>
-      <button class="btn primary" id="btnAdd" type="button">Thêm nhiệm vụ</button>
+      <button class="btn primary" id="btnAdd" type="button" hidden>Thêm nhiệm vụ</button>
+      <button class="btn" id="btnLogin" type="button">Đăng nhập</button>
     </div>
   </header>
 
@@ -172,6 +174,18 @@ footer{color:var(--muted);font-size:12.5px}
   </form>
 </dialog>
 
+<dialog id="dlgLogin" aria-labelledby="loginTitle" style="width:min(380px,calc(100vw - 24px))">
+  <form id="frmLogin" novalidate>
+    <h2 id="loginTitle">Đăng nhập để chỉnh sửa</h2>
+    <label for="iPass">Mật khẩu<input id="iPass" type="password" autocomplete="current-password"></label>
+    <div class="err" id="loginErr" role="alert"></div>
+    <div class="row">
+      <span></span>
+      <span class="actions"><button class="btn" id="btnLoginCancel" type="button">Đóng</button><button class="btn primary" id="btnLoginOk" type="submit">Đăng nhập</button></span>
+    </div>
+  </form>
+</dialog>
+
 <script>
 (() => {
 "use strict";
@@ -184,6 +198,7 @@ const fmtDate = s => s ? s.split("-").reverse().join("/") : "";
 
 let seed = [];            // danh sách ban đầu (tệp data.json)
 let saved = new Map();    // bản ghi đã lưu trong kho dữ liệu của trang
+let authKey = "";
 let db = null, canWrite = false, editing = null, delArmed = false;
 const state = {q:"", bc:"", xa:"", han:"", lv:"", ph:"", tile:""};
 
@@ -309,7 +324,7 @@ async function save(ev){
     await db.doc("tasks/" + id).set(body);
     saved.set(id, body); render(); $("dlg").close();
   } catch (e) {
-    $("frmErr").textContent = e && e.code === "invalid_argument" ? "Không lưu được: mã chỉnh sửa không đúng. Anh/chị bấm Lưu lại và nhập đúng mã." : "Không lưu được, anh/chị thử lại sau ít phút.";
+    $("frmErr").textContent = e && e.code === "invalid_argument" ? "Không lưu được: phiên đăng nhập không còn hiệu lực. Anh/chị đóng lại và đăng nhập lại." : "Không lưu được, anh/chị thử lại sau ít phút.";
   } finally { $("btnSave").disabled = !canWrite; }
 }
 async function del(){
@@ -332,6 +347,33 @@ $("tiles").addEventListener("click", e => {
 });
 $("rows").addEventListener("click", e => { const b = e.target.closest("[data-edit]"); if (b) openDlg(tasks().find(t => t.id === b.dataset.edit)); });
 $("btnAdd").addEventListener("click", () => openDlg(null));
+// Đăng nhập bằng mật khẩu chung: chưa đăng nhập thì chỉ xem.
+function setAuth(on){
+  canWrite = on;
+  $("btnAdd").hidden = !on; $("btnAdd").disabled = !on;
+  $("btnLogin").textContent = on ? "Đăng xuất" : "Đăng nhập";
+  render();
+}
+async function checkKey(k){
+  const r = await fetch("saved.json", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({check:true, key:k})});
+  return r.ok;
+}
+$("btnLogin").addEventListener("click", () => {
+  if (canWrite){ authKey = ""; try { sessionStorage.removeItem("maChinhSua"); } catch (e) {} setAuth(false); return; }
+  $("iPass").value = ""; $("loginErr").textContent = ""; $("dlgLogin").showModal(); $("iPass").focus();
+});
+$("btnLoginCancel").addEventListener("click", () => $("dlgLogin").close());
+$("frmLogin").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const k = $("iPass").value.trim();
+  if (!k){ $("loginErr").textContent = "Cần nhập mật khẩu."; return; }
+  $("btnLoginOk").disabled = true;
+  try {
+    if (await checkKey(k)){ authKey = k; try { sessionStorage.setItem("maChinhSua", k); } catch (e) {} setAuth(true); $("dlgLogin").close(); }
+    else $("loginErr").textContent = "Mật khẩu không đúng.";
+  } catch (e) { $("loginErr").textContent = "Không kiểm tra được mật khẩu, anh/chị thử lại sau ít phút."; }
+  finally { $("btnLoginOk").disabled = false; }
+});
 $("btnCancel").addEventListener("click", () => $("dlg").close());
 $("btnDel").addEventListener("click", del);
 $("frm").addEventListener("submit", save);
@@ -350,11 +392,11 @@ $("btnCopy").addEventListener("click", async () => {
 function makeDb(){
   const api = "saved.json";
   let key = ""; try { key = sessionStorage.getItem("maChinhSua") || ""; } catch (e) {}
-  const getKey = () => { if (!key){ key = (window.prompt("Nhập mã chỉnh sửa để lưu thay đổi:") || "").trim(); try { sessionStorage.setItem("maChinhSua", key); } catch (e) {} } return key; };
+  const getKey = () => authKey;
   return {
     doc(path){ const id = path.split("/")[1]; return { set: async body => {
       const r = await fetch(api, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({id, body, key: getKey()})});
-      if (r.status === 403){ key = ""; try { sessionStorage.removeItem("maChinhSua"); } catch (e) {} const er = new Error("forbidden"); er.code = "invalid_argument"; throw er; }
+      if (r.status === 403){ key = ""; authKey = ""; setAuth(false); try { sessionStorage.removeItem("maChinhSua"); } catch (e) {} const er = new Error("forbidden"); er.code = "invalid_argument"; throw er; }
       if (!r.ok) throw new Error("save");
     }}; },
     collection(){ return { onSnapshot(cb, err){
@@ -370,8 +412,9 @@ async function start(){
   catch (e) { showNote("Không tải được danh sách nhiệm vụ ban đầu."); }
   render();
   db = makeDb();
-  canWrite = true;
-  $("btnAdd").disabled = false;
+  try { authKey = sessionStorage.getItem("maChinhSua") || ""; } catch (e) {}
+  setAuth(false);
+  if (authKey) checkKey(authKey).then(ok => { if (ok) setAuth(true); else authKey = ""; }).catch(() => {});
   render();
   const timer = setTimeout(() => showNote("Chưa tải được các cập nhật đã lưu; số liệu đang hiển thị có thể chưa mới nhất."), 10000);
   db.collection("tasks").onSnapshot(snap => {
