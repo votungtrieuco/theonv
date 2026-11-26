@@ -44,6 +44,7 @@ export default async (req) => {
 
   const secret = process.env.MA_CHINH_SUA || "";
   if (!secret || typeof p.key !== "string" || p.key !== secret) return reply({ error: "forbidden" }, 403);
+  if (p.check) return reply({ ok: true });
 
   if (typeof p.id !== "string" || !p.id || p.id.length > 80 || !p.body || typeof p.body !== "object" || Array.isArray(p.body))
     return reply({ error: "bad_request" }, 400);
