@@ -369,10 +369,9 @@ async function start(){
   try { const r = await fetch("data.json"); seed = (await r.json()).map(fromSeed); }
   catch (e) { showNote("Không tải được danh sách nhiệm vụ ban đầu."); }
   render();
-  $("btnAdd").disabled = true;
   db = makeDb();
-  canWrite = false;
-  $("btnAdd").disabled = true;
+  canWrite = true;
+  $("btnAdd").disabled = false;
   render();
   const timer = setTimeout(() => showNote("Chưa tải được các cập nhật đã lưu; số liệu đang hiển thị có thể chưa mới nhất."), 10000);
   db.collection("tasks").onSnapshot(snap => {
